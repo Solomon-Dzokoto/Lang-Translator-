@@ -75,25 +75,22 @@ const ChatApp = () => {
         };
     }, []);
 
-    useEffect(() => {
-        if (!checker) return;
-        const detectLang = async () => {
-            try {
-                if (typeof checker.detect !== 'function') {
-                    throw new Error("Detector not properly initialized");
-                }
-                const results = await checker.detect(text);
-                if (results) {
-                    setLang(results);
-                } else {
-                    throw new Error("No detection results returned");
-                }
-            } catch (err) {
-                const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-                console.error("Detection error:", errorMessage);
-                setError(errorMessage);
-            }
-        };
+    const sendMsg = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        detectLang()
+        setIsSend(prev => !prev)
+        setText("")
+    }
+
+
+    const displayLang = () => {
+        if (lang && lang.length > 0) {
+            const chosenLang = lang[0].detectedLanguage
+            const langInHuman = new Intl.DisplayNames([chosenLang], { type: "language" })
+            console.log(langInHuman.of(chosenLang))
+            return langInHuman.of(chosenLang)
+        }
+    }
 
         detectLang();
     }, [checker]);
