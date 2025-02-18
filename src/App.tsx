@@ -1,12 +1,10 @@
 import ContextApi from "./context/ContextApi"
-
+import ChatApp from "./pages/ChatApp"
 const App = () => {
 
   return (
     <ContextApi>
-      <div>
-       
-      </div>
+      <ChatApp />
     </ContextApi>
   )
 }
