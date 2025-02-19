@@ -5,5 +5,22 @@
 }
 
 
-@import "tailwindcss"
+:root {
+    --primary-bg: #27568B;
+    --primary-text: #C9DDEE;
+    --secondary-bg: #47A1C4;
+    --accent: #B68250;
+    --chat-bg: #C9DDEE;
+    --chat-text: #27568B;
+}
 
+.dark {
+    --primary-bg: #1a1a1a;
+    --primary-text: #ffffff;
+    --secondary-bg: #2d2d2d;
+    --accent: #B68250;
+    --chat-bg: #2d2d2d;
+    --chat-text: #ffffff;
+}
+
+@import "tailwindcss"

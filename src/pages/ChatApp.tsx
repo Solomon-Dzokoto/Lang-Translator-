@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { IoMdSend } from "react-icons/io";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiLoader } from "react-icons/fi";
-import Navbar from '../components/Navbar';
+import Navbar from '../components/NavBar';
 
 const messageVariants = {
     initial: { opacity: 0, y: 50 },
@@ -38,8 +38,6 @@ const ChatApp = () => {
     const [isSend, setIsSend] = useState<boolean>(false);
     const [welcomeMessage, setWelcomeMessage] = useState<boolean>(true);
     const [isDark, setIsDark] = useState(false);
-
-    const toggleTheme = () => setIsDark(prev => !prev);
 
     useEffect(() => {
         if (messages.length > 0 && isSend) {
@@ -309,6 +307,22 @@ const ChatApp = () => {
         }
     };
 
+    // Add this at the top of your component
+    useEffect(() => {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            setIsDark(true);
+        }
+    }, []);
+
+    const toggleTheme = () => {
+        setIsDark(prev => {
+            const newTheme = !prev;
+            localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+            return newTheme;
+        });
+    };
+
     useEffect(() => {
         const timer = setTimeout(() => {
             setWelcomeMessage(false);
@@ -321,7 +335,7 @@ const ChatApp = () => {
         <div className={`relative min-h-screen ${isDark ? 'dark' : ''}`} role="main" aria-label="Chat Application">
             <Navbar isDark={isDark} toggleTheme={toggleTheme} />
 
-            <div className="pt-16">
+            <div className="pt-16 bg-[var(--primary-bg)]">
                 <AnimatePresence mode="wait">
                     {welcomeMessage && (
                         <motion.div
@@ -383,7 +397,7 @@ const ChatApp = () => {
                     variants={containerVariants}
                     initial="initial"
                     animate={!welcomeMessage ? "animate" : "initial"}
-                    className="w-full max-w-4xl mx-auto relative flex flex-col min-h-screen p-4 md:p-8 bg-[#C9DDEE] text-[#27568B]"
+                    className="w-full max-w-4xl mx-auto relative flex flex-col min-h-screen p-4 md:p-8 bg-[var(--chat-bg)] text-[var(--chat-text)]"
                     role="region"
                     aria-label="Chat messages"
                 >
@@ -391,7 +405,7 @@ const ChatApp = () => {
 
                         {messages.length > 0 ? (
                             <AnimatePresence>
-                                <div className="mb-4 space-y-6">
+                                <div className="mb-4 flex flex-col space-y-6">
                                     {messages.map((data, index) => (
                                         <motion.article
                                             key={index}
@@ -408,7 +422,7 @@ const ChatApp = () => {
                                                 className="flex flex-row justify-end"
 
                                             >
-                                                <p className="p-4 items-end border flex-wrap text-wrap border-[#B68250] rounded-2xl text-[1rem] md:text-[1.2rem] w-fit max-w-[90%] md:max-w-[80%] bg-[#47A1C4] text-[#27568B] mb-2 shadow-lg">
+                                                <p className="p-4 items-end border whitespace-pre-wrap break-words border-[var(--accent)] rounded-2xl text-[1rem] md:text-[1.2rem] w-fit max-w-[90%] md:max-w-[80%] bg-[var(--secondary-bg)] text-[var(--primary-text)] mb-2 shadow-lg">
                                                     {data.text}
                                                 </p>
                                             </div>
@@ -419,19 +433,19 @@ const ChatApp = () => {
                                                     animate={{ opacity: 1 }}
                                                     className="mb-4 justify-end flex text-green-600 text-sm md:text-base"
                                                 >
-                                                    I am {(data.percent * 100).toFixed(2)}% sure that is an/a {displayLang(data.lang)} language
+                                                    I am {(data.percent * 100).toFixed(2)}% sure that this is an/a {displayLang(data.lang)} language 🤟
                                                 </motion.p>
                                             )}
 
                                             <div className="justify-end items-center flex flex-wrap gap-2">
-                                                <label htmlFor={`translate-select-${index}`} className="mb-4 mr-2">
+                                                <label htmlFor={`select`} className="mb-4 mr-2">
                                                     Translate to
                                                 </label>
                                                 <select
-                                                    id={`translate-select-${index}`}
+                                                    id={`select`}
                                                     value={data.select}
                                                     onChange={(e) => onSelectChange(e, index)}
-                                                    className="text-[#27568B] border mr-4 border-[#27568B] py-2 px-4 rounded mb-4 bg-white/80 backdrop-blur-sm focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none"
+                                                    className="text-[var(--chat-text)] border mr-4 border-[var(--chat-text)] py-2 px-4 rounded mb-4 bg-[var(--chat-bg)] backdrop-blur-sm focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none"
                                                     aria-label="Select target language"
                                                 >
                                                     <option value="en">English</option>
@@ -447,7 +461,7 @@ const ChatApp = () => {
                                                     whileTap="tap"
                                                     disabled={data.loading}
                                                     onClick={() => onTranslate(index)}
-                                                    className={`bg-[#27568B] ${data.loading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} text-white py-2 px-4 rounded mb-4 shadow-md hover:shadow-lg transition-shadow focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none`}
+                                                    className={`bg-[var(--primary-bg)] ${data.loading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} text-[var(--primary-text)] py-2 px-4 rounded mb-4 shadow-md hover:shadow-lg transition-shadow focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none`}
                                                     aria-label={data.loading ? 'Translating message' : 'Translate message'}
                                                     aria-busy={data.loading}
                                                 >
@@ -476,9 +490,6 @@ const ChatApp = () => {
                                                 {data?.summarizeLoader && <span className="w-full h-full rounded-2xl overflow-hidden"><img className="object-fit  w-full overflow-hidden h-full" src="/assets/78259-loading.gif" alt="loading" /></span>}
                                             </div>
 
-
-
-
                                             <AnimatePresence>
                                                 {data.error && (
                                                     <motion.p
@@ -498,7 +509,7 @@ const ChatApp = () => {
                                                         initial={{ opacity: 0, x: 50 }}
                                                         animate={{ opacity: 1, x: 0 }}
                                                         exit={{ opacity: 0, x: 50 }}
-                                                        className="p-4 items-end list-none border border-[#B68250] rounded-2xl text-[1rem] md:text-[1.2rem] w-fit max-w-[90%] md:max-w-[80%] bg-[#47A1C4] text-[#27568B] mb-4 shadow-lg"
+                                                        className="p-4 items-end list-none border border-[#B68250] rounded-2xl text-[1rem] md:text-[1.2rem] whitespace-pre-wrap break-words w-fit max-w-[90%] md:max-w-[80%] bg-[#47A1C4] text-[#27568B] mb-4 shadow-lg"
                                                     >
                                                         <span className="text-[#B68250] font-semibold">Summary</span>
                                                         <br />
@@ -515,7 +526,7 @@ const ChatApp = () => {
                                                         initial={{ opacity: 0, x: 50 }}
                                                         animate={{ opacity: 1, x: 0 }}
                                                         exit={{ opacity: 0, x: 50 }}
-                                                        className="p-4 items-end list-none border border-[#B68250] rounded-2xl text-[1rem] md:text-[1.2rem] w-fit max-w-[90%] md:max-w-[80%] bg-[#47A1C4] text-[#27568B] mb-4 shadow-lg"
+                                                        className="p-4 items-end list-none border border-[#B68250] rounded-2xl text-[1rem] md:text-[1.2rem] whitespace-pre-wrap break-words w-fit max-w-[90%] md:max-w-[80%] bg-[#47A1C4] text-[#27568B] mb-4 shadow-lg"
                                                     >
                                                         <span className="text-[#B68250] font-semibold">Translation</span>
                                                         <br />
@@ -545,7 +556,7 @@ const ChatApp = () => {
                             </label>
                             <textarea
                                 id="message-input"
-                                className="w-full border-gray-400 rounded-2xl min-h-[8rem] md:min-h-[10rem] border p-4 pr-10 bg-[#27568B] text-white resize-none shadow-lg focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none"
+                                className="w-full border-gray-400 rounded-2xl min-h-[8rem] md:min-h-[10rem] border p-4 pr-10 bg-[var(--primary-bg)] text-[var(--primary-text)] resize-none shadow-lg focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none"
                                 placeholder="Send message..."
                                 value={text}
                                 onChange={onTextChange}
