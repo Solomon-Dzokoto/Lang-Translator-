@@ -6,7 +6,7 @@ const App = () => {
 
 
   return (
-    <div className="min-h-screen bg-[#222021]  ">
+    <div className="min-h-screen bg-[#27568B]  ">
       <ContextApi>
         <ChatApp />
       </ContextApi>

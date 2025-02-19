@@ -1,1 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Road+Rage&display=swap');
+
+.font-roadRage {
+    font-family: "Road Rage", sans-serif;
+}
+
+
 @import "tailwindcss"
+
