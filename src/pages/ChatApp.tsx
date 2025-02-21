@@ -23,21 +23,17 @@ const containerVariants = {
     exit: { opacity: 0 }
 };
 
-// // Add these keyboard interaction helpers
-// const handleButtonKeyPress = (e: React.KeyboardEvent, callback: () => void) => {
-//     if (e.key === 'Enter' || e.key === ' ') {
-//         e.preventDefault();
-//         callback();
-//     }
-// };
+
 
 const ChatApp = () => {
 
     const [text, setText] = useState<string>("");
-    const [messages, setMessages] = useState<{ id: number; lang: string | null; select: string; summarizeLoader: boolean; text: string; percent: number | null; loading: boolean; error: string | null; summary: string | null; translatedText: string | null; }[]>([]);
+    const [messages, setMessages] = useState<{ id: number; lang: string | null; select: string; summarizeLoader: boolean; text: string; percent: number | null; detectLoader: boolean; loading: boolean; error: string | null; summary: string | null; translatedText: string | null; }[]>([]);
     const [isSend, setIsSend] = useState<boolean>(false);
     const [welcomeMessage, setWelcomeMessage] = useState<boolean>(true);
     const [isDark, setIsDark] = useState(false);
+    const [download, setDownload] = useState<boolean>(false)
+    const [isSummarizing, setIsSummarizing] = useState<boolean>(false)
 
     useEffect(() => {
         if (messages.length > 0 && isSend) {
@@ -57,6 +53,11 @@ const ChatApp = () => {
     }
 
     const detectLang = async (messageIndex: number) => {
+        setMessages(prevMessages =>
+            prevMessages.map((msg, index) =>
+                index === messageIndex ? { ...msg, detectLoader: true } : msg
+            )
+        );
         try {
             //check if AI and languageDetector are supported
             if (typeof self === 'object' && self && "ai" in self && typeof self.ai === 'object' && self.ai !== null && "languageDetector" in self.ai) {
@@ -72,10 +73,13 @@ const ChatApp = () => {
                 }
                 if (languageDetectorCapabilities?.available === 'readily') {
                     //already downloaded to use
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     detector = await (self.ai as any).languageDetector?.create();
                     console.log("Language detector is readily available");
                 } else {
                     //ready to download model if not available
+                    setDownload(true)
+                    console.log("ready to download language detector model");
                     detector = await (self.ai as any).languageDetector?.create({
                         monitor(m: EventTarget) {
                             const downloadListener = (event: Event) => {
@@ -86,6 +90,7 @@ const ChatApp = () => {
                             return () => m.removeEventListener("downloadprogress", downloadListener);
                         }
                     });
+                    setDownload(false)
                 }
 
                 //if detector is not available, throw an error
@@ -99,7 +104,7 @@ const ChatApp = () => {
                     //set language and confidence of the message
                     setMessages(prevMessages =>
                         prevMessages.map((msg, index) =>
-                            index === messageIndex ? { ...msg, lang: checker[0]?.detectedLanguage, percent: checker[0]?.confidence } : msg
+                            index === messageIndex ? { ...msg, lang: checker[0]?.detectedLanguage, percent: checker[0]?.confidence, detectLoader: false } : msg
                         )
                     );
                 }
@@ -109,6 +114,11 @@ const ChatApp = () => {
         } catch (err) {
             console.error("Initialization error:", err instanceof Error ? err.message : "Unknown error occurred");
             catchError(messageIndex, err instanceof Error ? err.message : "Initialization error occurred");
+            setMessages(prevMessages =>
+                prevMessages.map((msg, index) =>
+                    index === messageIndex ? { ...msg, detectLoader: false } : msg
+                )
+            );
         }
     };
 
@@ -128,6 +138,7 @@ const ChatApp = () => {
             percent: null,
             text,
             summarizeLoader: false,
+            detectLoader: false,
             loading: false,
             error: null,
             summary: null,
@@ -135,8 +146,10 @@ const ChatApp = () => {
         };
 
         setMessages(prev => [...prev, newMessage]);
+
         setText("");
         setIsSend(true);
+        detectLang(messages.length - 1)
     };
 
     //display language in human form
@@ -181,12 +194,21 @@ const ChatApp = () => {
                     //check if summarizer is available or not
                     if (summarizerCapa?.available === 'no') {
                         console.error("Summarizer is not available");
+                        setMessages(prevMessages =>
+                            prevMessages.map((msg, index) =>
+                                index === messageIndex ? { ...msg, summarizeLoader: false } : msg
+                            )
+                        );
                         throw new Error("Summarizer is not available");
-                    } else if (summarizerCapa?.available === 'readily') {
+                    }
+
+                  
+                    if (summarizerCapa?.available === 'readily') {
                         //already downloaded to use
                         summarize = await (self.ai as any).summarizer?.create();
                         console.log("Summarizer is readily available");
                     } else {
+                        setDownload(true)
                         // ready to download summarizer model
                         summarize = await (self.ai as any).summarizer?.create({
                             monitor(m: EventTarget) {
@@ -198,18 +220,23 @@ const ChatApp = () => {
                                 return () => m.removeEventListener("downloadprogress", downloadListener);
                             }
                         });
+                        setDownload(false)
                     }
+                
 
                     if (!summarize) {
                         throw new Error("Failed to create summarizer");
                     }
-
+                
+                    setIsSummarizing(true)
                     const summaryResult = await summarize.summarize(message.text);
+                    console.log(summaryResult)
                     setMessages(prevMessages =>
                         prevMessages.map((msg, index) =>
                             index === messageIndex ? { ...msg, summary: summaryResult, summarizeLoader: false } : msg
                         )
                     );
+                 setIsSummarizing(false)
 
                 }
             }
@@ -269,7 +296,8 @@ const ChatApp = () => {
                     //already downloaded to use
                     translate = await (self.ai as any).translator.create();
                 } else {
-                    console.log("Ready to download Translator AI model");
+
+                    setDownload(true)
                     // ready to download summarizer model
                     translate = await (self.ai as any).translator.create({
                         sourceLanguage: message.lang,
@@ -283,6 +311,7 @@ const ChatApp = () => {
                             return () => m.removeEventListener("downloadprogress", downloadListener);
                         }
                     });
+                    setDownload(false)
                 }
 
                 //if translator is not available, throw an error
@@ -334,7 +363,35 @@ const ChatApp = () => {
     return (
         <div className={`relative min-h-screen ${isDark ? 'dark' : ''}`} role="main" aria-label="Chat Application">
             <Navbar isDark={isDark} toggleTheme={toggleTheme} />
+            {download && <motion.span
+                initial={{ y: 20, opacity: 0.2, scale: 0.8 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 20, opacity: 0.2, scale: 0.8 }}
+                transition={{ duration: 0.5 }}
+                className="fixed flex justify-center border-2 rounded-md border-red-600 bg-white left-1/2 -translate-x-1/2 top-[8rem] w-[20rem] items-center  z-50">
+                <img className="w-20 h-20" src="/assets/78259-loading.gif" alt="loading" />
+                <div className="">
+                    <p className="font-semibold text-[#27568B] text-">Downloading... the Ai model</p>
+                    <p className=" text-gray-500 text-[.7rem] text-center ">It might take time so be patient</p>
+                </div>
 
+            </motion.span>
+            }
+            {isSummarizing && <motion.span
+                initial={{ y: 20, opacity: 0.2, scale: 0.8 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 20, opacity: 0.2, scale: 0.8 }}
+                transition={{ duration: 0.5 }}
+                className="fixed flex justify-center border-2 rounded-md border-red-600 bg-white left-1/2 -translate-x-1/2 top-[8rem] w-[20rem] items-center  z-50">
+                <img className="w-20 h-20" src="/assets/78259-loading.gif" alt="loading" />
+                <div className="">
+                    <p className="font-semibold text-[#27568B] text-">Summarizing your message!</p>
+                    <p className="text-red-500  text-[.7rem] text-center text-">It might take time so be patient</p>
+                </div>
+
+            </motion.span>
+            }
+            
             <div className="pt-16 bg-[var(--primary-bg)]">
                 <AnimatePresence mode="wait">
                     {welcomeMessage && (
@@ -422,30 +479,37 @@ const ChatApp = () => {
                                                 className="flex flex-row justify-end"
 
                                             >
-                                                <p className="p-4 items-end border whitespace-pre-wrap break-words border-[var(--accent)] rounded-2xl text-[1rem] md:text-[1.2rem] w-fit max-w-[90%] md:max-w-[80%] bg-[var(--secondary-bg)] text-[var(--primary-text)] mb-2 shadow-lg">
+                                                <p className="p-2 items-end border whitespace-pre-wrap break-words border-[var(--accent)] rounded-[.6rem] min-w-[30%] text-[.8rem] md:text-[.9rem] w-fit max-w-[90%] md:max-w-[80%] bg-[var(--secondary-bg)] text-[var(--primary-text)] mb-2 shadow-lg">
                                                     {data.text}
                                                 </p>
                                             </div>
 
-                                            {displayLang(data.lang) && data.percent !== null && (
-                                                <motion.p
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    className="mb-4 justify-end flex text-green-600 text-sm md:text-base"
-                                                >
-                                                    I am {(data.percent * 100).toFixed(2)}% sure that this is an/a {displayLang(data.lang)} language 🤟
-                                                </motion.p>
-                                            )}
 
-                                            <div className="justify-end items-center flex flex-wrap gap-2">
-                                                <label htmlFor={`select`} className="mb-4 mr-2">
+                                            <div className="justify-end text-[.6rem] items-center flex flex-wrap gap-1">
+                                                {data.text.length >= 150 && data.lang !== null && data.lang === 'en' && !data.summary && (
+                                                    <motion.div className="flex justify-end">
+                                                        <motion.button
+                                                            variants={buttonVariants}
+                                                            whileHover="hover"
+                                                            whileTap="tap"
+                                                            disabled={data.summarizeLoader}
+                                                            onClick={() => onSummarize(index)}
+                                                            className={`${data?.summarizeLoader ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} bg-[#27568B] text-white py-1 px-4 rounded mb-4 shadow-md hover:shadow-lg flex justify-center items-center transition-shadow focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none `}
+                                                            aria-label={data.summarizeLoader ? 'Summarizing message' : 'Summarize message'}
+                                                            aria-busy={data.summarizeLoader}
+                                                        >
+                                                            {data.summarizeLoader ? <span className="flex gap-2 items-center " aria-hidden="true"> <span className="animate-spin" ><FiLoader /> </span>Summarizing...</span> : 'Summarize'}
+                                                        </motion.button>
+                                                    </motion.div>
+                                                )}
+                                                <label htmlFor={`select`} className="mb-4 ">
                                                     Translate to
                                                 </label>
                                                 <select
                                                     id={`select`}
                                                     value={data.select}
                                                     onChange={(e) => onSelectChange(e, index)}
-                                                    className="text-[var(--chat-text)] border mr-4 border-[var(--chat-text)] py-2 px-4 rounded mb-4 bg-[var(--chat-bg)] backdrop-blur-sm focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none"
+                                                    className="text-[var(--chat-text)] border  border-[var(--chat-text)] py-1 px-2 text-[.7rem] rounded mb-4 bg-[var(--chat-bg)] backdrop-blur-sm focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none"
                                                     aria-label="Select target language"
                                                 >
                                                     <option value="en">English</option>
@@ -461,34 +525,49 @@ const ChatApp = () => {
                                                     whileTap="tap"
                                                     disabled={data.loading}
                                                     onClick={() => onTranslate(index)}
-                                                    className={`bg-[var(--primary-bg)] ${data.loading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} text-[var(--primary-text)] py-2 px-4 rounded mb-4 shadow-md hover:shadow-lg transition-shadow focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none`}
+                                                    className={`bg-[var(--primary-bg)] ${data.loading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} text-[.7rem] text-[var(--primary-text)] py-1 px-4 rounded mb-4 shadow-md hover:shadow-lg transition-shadow focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none`}
                                                     aria-label={data.loading ? 'Translating message' : 'Translate message'}
                                                     aria-busy={data.loading}
                                                 >
-                                                    {data.loading ? 'Translating...' : 'Translate'}
+                                                    {data.loading ? 'Translating...' : <span>  Translate</span>}
                                                 </motion.button>
                                             </div>
 
-                                            {data.text.length >= 150 && data.lang !== null && data.lang === 'en' && !data.summary && (
-                                                <motion.div className="flex justify-end">
-                                                    <motion.button
-                                                        variants={buttonVariants}
-                                                        whileHover="hover"
-                                                        whileTap="tap"
-                                                        disabled={data.summarizeLoader}
-                                                        onClick={() => onSummarize(index)}
-                                                        className={`${data?.summarizeLoader ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} bg-[#27568B] text-white py-2 px-4 rounded mb-4 shadow-md hover:shadow-lg flex justify-center items-center transition-shadow focus:ring-2 focus:ring-[#B68250] focus:border-transparent outline-none`}
-                                                        aria-label={data.summarizeLoader ? 'Summarizing message' : 'Summarize message'}
-                                                        aria-busy={data.summarizeLoader}
+                                            {data?.detectLoader ? (
+                                                <motion.span
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    <span className="animate-spin"><FiLoader /></span>
+                                                    Detecting language...
+                                                </motion.span>
+                                            ) : null
+                                            }
+
+                                            {displayLang(data.lang) && (
+                                                <motion.p
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    className="mb-4 bg-[#27568B] text-white flex p-2 items-end list-none border border-[#B68250] rounded-[.6rem] text-[.8rem] whitespace-pre-wrap break-words w-fit max-w-[90%] md:max-w-[80%] shadow-lg text-sm md:text-[.7rem]"
+                                                >
+                                                    <motion.span
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
                                                     >
-                                                        {data.summarizeLoader ? <span className="animate-spin" aria-hidden="true"><FiLoader /></span> : 'Summarize'}
-                                                    </motion.button>
-                                                </motion.div>
+                                                        Your message is <span className="text-green-600">{displayLang(data.lang)}</span> language 🤟
+                                                    </motion.span>
+
+                                                </motion.p>
                                             )}
-                                            {data?.summarizeLoader && <span className="w-full text-center flex justify-center mb-4">Kindly be patient</span>}
-                                            <div className={`${data.summarizeLoader ? " h-[15rem]" : ""}`}>
-                                                {data?.summarizeLoader && <span className="w-full h-full rounded-2xl overflow-hidden"><img className="object-fit  w-full overflow-hidden h-full" src="/assets/78259-loading.gif" alt="loading" /></span>}
-                                            </div>
+
+
+                                            {
+                                                data?.summarizeLoader && (
+                                                    <span className="w-full text-center flex justify-center mb-4">Kindly be patient - The AI is processing the message. Please wait..</span>
+                                                )
+                                            }
+
 
                                             <AnimatePresence>
                                                 {data.error && (
@@ -509,12 +588,11 @@ const ChatApp = () => {
                                                         initial={{ opacity: 0, x: 50 }}
                                                         animate={{ opacity: 1, x: 0 }}
                                                         exit={{ opacity: 0, x: 50 }}
-                                                        className="p-4 items-end list-none border border-[#B68250] rounded-2xl text-[1rem] md:text-[1.2rem] whitespace-pre-wrap break-words w-fit max-w-[90%] md:max-w-[80%] bg-[#47A1C4] text-[#27568B] mb-4 shadow-lg"
+                                                        className="mb-4  bg-[#27568B] min-w-[30%] text-white p-2 items-end list-none border border-[#B68250] rounded-[.6rem] text-[.8rem] whitespace-pre-wrap break-words w-fit max-w-[90%] md:max-w-[80%]  shadow-lg text-sm md:text-[.8rem]"
                                                     >
                                                         <span className="text-[#B68250] font-semibold">Summary</span>
                                                         <br />
                                                         {data.summary}
-
 
                                                     </motion.p>
                                                 )}
@@ -526,10 +604,12 @@ const ChatApp = () => {
                                                         initial={{ opacity: 0, x: 50 }}
                                                         animate={{ opacity: 1, x: 0 }}
                                                         exit={{ opacity: 0, x: 50 }}
-                                                        className="p-4 items-end list-none border border-[#B68250] rounded-2xl text-[1rem] md:text-[1.2rem] whitespace-pre-wrap break-words w-fit max-w-[90%] md:max-w-[80%] bg-[#47A1C4] text-[#27568B] mb-4 shadow-lg"
+                                                        className="mb-4  bg-[#27568B] min-w-[30%] text-white p-2 items-end list-none border border-[#B68250] rounded-[.6rem] text-[.8rem] whitespace-pre-wrap break-words w-fit max-w-[90%] md:max-w-[80%]  shadow-lg text-sm md:text-[.8rem]"
                                                     >
-                                                        <span className="text-[#B68250] font-semibold">Translation</span>
+                                                        <span className="text-[#B68250] w-full font-semibold">Translation</span>
+
                                                         <br />
+
                                                         {data.translatedText}
                                                     </motion.p>
                                                 )}
