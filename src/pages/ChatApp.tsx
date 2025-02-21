@@ -95,6 +95,7 @@ const ChatApp = () => {
 
                 //if detector is not available, throw an error
                 if (!detector) {
+                    setDownload(false)
                     throw new Error("Failed to create detector");
                 }
 
@@ -108,7 +109,9 @@ const ChatApp = () => {
                         )
                     );
                 }
+                setDownload(false)
             } else {
+                setDownload(false)
                 throw new Error("AI and languageDetector are not supported");
             }
         } catch (err) {
@@ -119,6 +122,7 @@ const ChatApp = () => {
                     index === messageIndex ? { ...msg, detectLoader: false } : msg
                 )
             );
+            setDownload(false)
         }
     };
 
@@ -202,7 +206,7 @@ const ChatApp = () => {
                         throw new Error("Summarizer is not available");
                     }
 
-                  
+
                     if (summarizerCapa?.available === 'readily') {
                         //already downloaded to use
                         summarize = await (self.ai as any).summarizer?.create();
@@ -222,12 +226,13 @@ const ChatApp = () => {
                         });
                         setDownload(false)
                     }
-                
+
 
                     if (!summarize) {
+                        setDownload(false)
                         throw new Error("Failed to create summarizer");
                     }
-                
+
                     setIsSummarizing(true)
                     const summaryResult = await summarize.summarize(message.text);
                     console.log(summaryResult)
@@ -236,12 +241,13 @@ const ChatApp = () => {
                             index === messageIndex ? { ...msg, summary: summaryResult, summarizeLoader: false } : msg
                         )
                     );
-                 setIsSummarizing(false)
+                    setIsSummarizing(false)
 
                 }
             }
         } catch (err) {
             catchError(messageIndex, err instanceof Error ? err.message : "Summarization failed");
+            setDownload(false)
         }
     };
 
@@ -315,7 +321,10 @@ const ChatApp = () => {
                 }
 
                 //if translator is not available, throw an error
-                if (!translate) throw new Error("Failed to create translator");
+                if (!translate) {
+                    setDownload(false)
+                    throw new Error("Failed to create translator");
+                }
 
                 // translate the message
                 const translatedText = await translate.translate(message.text);
@@ -327,12 +336,16 @@ const ChatApp = () => {
                         index === messageIndex ? { ...msg, translatedText, loading: false } : msg
                     )
                 );
+                setDownload(false)
             } else {
+                setDownload(false)
                 throw new Error("Translate is not supported");
+
             }
         } catch (err) {
-
+            setDownload(false)
             catchError(messageIndex, err instanceof Error ? err.message : "Translation failed");
+
         }
     };
 
@@ -391,7 +404,7 @@ const ChatApp = () => {
 
             </motion.span>
             }
-            
+
             <div className="pt-16 bg-[var(--primary-bg)]">
                 <AnimatePresence mode="wait">
                     {welcomeMessage && (
